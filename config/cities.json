@@ -1,0 +1,11 @@
+{
+  "hanoi": { "name": "Hanoi", "latitude": 21.0285, "longitude": 105.8542 },
+  "ho-chi-minh-city": {
+    "name": "Ho Chi Minh City",
+    "latitude": 10.8231,
+    "longitude": 106.6297
+  },
+  "da-nang": { "name": "Da Nang", "latitude": 16.0544, "longitude": 108.2022 },
+  "hue": { "name": "Hue", "latitude": 16.4637, "longitude": 107.5909 },
+  "can-tho": { "name": "Can Tho", "latitude": 10.0452, "longitude": 105.7469 }
+}
