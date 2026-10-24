@@ -2,3 +2,7 @@ __pycache__/
 *.py[cod]
 .venv/
 data/raw/*.json
+target/
+dbt_packages/
+logs/
+profiles.yml

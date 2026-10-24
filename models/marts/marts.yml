@@ -1,0 +1,12 @@
+version: 2
+
+models:
+  - name: fct_weather_daily
+    description: One typed analytical weather row per city and observation date.
+    columns:
+      - name: city_key
+        tests:
+          - not_null
+      - name: observation_date
+        tests:
+          - not_null

@@ -1,0 +1,12 @@
+weather_dbt:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: localhost
+      user: weather
+      password: "{{ env_var('WEATHER_DB_PASSWORD') }}"
+      port: 5433
+      dbname: weather
+      schema: analytics
+      threads: 2

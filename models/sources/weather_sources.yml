@@ -1,0 +1,13 @@
+version: 2
+
+sources:
+  - name: weather
+    schema: public
+    tables:
+      - name: raw_weather
+        description: Raw Open-Meteo payloads loaded by the Python ingestion pipeline.
+        columns:
+          - name: city_key
+            description: Stable city identifier from config/cities.json.
+          - name: observation_date
+            description: Date requested from the Open-Meteo archive API.

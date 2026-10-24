@@ -1,0 +1,21 @@
+version: 2
+
+models:
+  - name: stg_weather_daily
+    description: Typed daily weather fields extracted from the raw JSON payload.
+    columns:
+      - name: city_key
+        tests:
+          - not_null
+      - name: observation_date
+        tests:
+          - not_null
+      - name: mean_temperature_c
+        tests:
+          - not_null
+      - name: precipitation_mm
+        tests:
+          - not_null
+      - name: max_wind_speed_kmh
+        tests:
+          - not_null
