@@ -10,7 +10,17 @@ Dự án học Data Engineering theo từng chặng, dùng dữ liệu thời ti
 4. **Chặng 4 — Airflow:** lập lịch, theo dõi trạng thái và chạy lại tác vụ.
 5. **Chặng 5 — Spark/cloud (tùy chọn):** chỉ bổ sung sau khi pipeline cục bộ đã rõ.
 
-## Chặng 3 — SQL + mô hình dữ liệu phân tích
+## Bài học đã hoàn thành
+
+Tài liệu ôn tập chi tiết cho các bài đã xác nhận:
+
+- [Bài 2 — Nạp raw vào PostgreSQL](docs/lessons/02-postgresql-raw-loading.md)
+- [Bài 3 — Biến đổi raw thành bảng phân tích](docs/lessons/03-sql-transformation.md)
+- [Bài 3.1 — Kiểm tra chất lượng dữ liệu bằng SQL](docs/lessons/03-1-sql-data-quality.md)
+
+Mỗi tài liệu có mục tiêu, luồng dữ liệu, giải thích khái niệm, lệnh/truy vấn mẫu và bài tập tự ôn. Các bài học tiếp theo sẽ được bổ sung vào thư mục này sau khi bạn xác nhận hoàn thành.
+
+## Chặng 3 — SQL, mô hình dữ liệu và chất lượng dữ liệu
 
 Tạo bảng phân tích có kiểu dữ liệu rõ ràng từ bảng raw:
 
@@ -18,7 +28,7 @@ Tạo bảng phân tích có kiểu dữ liệu rõ ràng từ bảng raw:
 Get-Content sql\transform_daily.sql | docker compose exec -T postgres psql -U weather -d weather
 ```
 
-Kiểm tra kết quả:
+Kiểm tra dữ liệu đã chuẩn hóa:
 
 ```sql
 SELECT city_key, observation_date, mean_temperature_c,
@@ -27,7 +37,28 @@ FROM weather_daily
 ORDER BY mean_temperature_c DESC;
 ```
 
-Script dùng `INSERT ... ON CONFLICT` nên có thể chạy lại an toàn. Bảng `raw_weather` giữ nguyên payload gốc; bảng `weather_daily` phục vụ truy vấn phân tích với các cột số đã chuẩn hóa.
+Script dùng `INSERT ... ON CONFLICT` nên có thể chạy lại an toàn. Bảng `raw_weather` giữ payload gốc; `weather_daily` phục vụ truy vấn phân tích.
+
+### Bài 3.1 — Kiểm tra chất lượng dữ liệu bằng SQL
+
+Sau khi chạy transform, chạy bộ kiểm tra:
+
+```powershell
+Get-Content sql\check_weather_daily.sql | docker compose exec -T postgres psql -U weather -d weather
+```
+
+Mỗi dòng là một kiểm tra độc lập. `failed_rows = 0` và `status = PASS` nghĩa là không tìm thấy bản ghi vi phạm; giá trị lớn hơn 0 và `FAIL` cần được điều tra theo quy tắc tương ứng.
+
+Các kiểm tra xác nhận bảng có dữ liệu, mỗi bản ghi raw đã được transform, không có bản ghi phân tích mồ côi, các chỉ số thời tiết không bị thiếu, nhiệt độ nằm trong khoảng vật lý rộng từ -90 đến 60 °C và lượng mưa/tốc độ gió không âm.
+
+**Thực hành:**
+
+1. Chạy transform rồi chạy bộ kiểm tra hai lần; xác nhận số lượng và trạng thái không đổi.
+2. Thêm một kiểm tra riêng để tìm nhiệt độ trung bình trên 35 °C.
+3. Chạy kiểm tra mới; giải thích vì sao giá trị trên 35 °C là cảnh báo phục vụ điều tra chứ chưa chắc là dữ liệu sai.
+4. Không xóa hoặc sửa dữ liệu raw thật chỉ để làm cho kiểm tra thành công.
+
+Khi hoàn thành, gửi kết quả các dòng `check_name / failed_rows / status` và câu trả lời của bạn; sau khi xác nhận xong bài này, sẽ push các thay đổi và chuyển sang dbt.
 
 ## Chặng 1: chạy thử
 
