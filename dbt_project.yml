@@ -1,3 +1,4 @@
+# Cấu hình project và vật liệu hóa mặc định theo lớp dữ liệu.
 name: weather_dbt
 version: "1.0.0"
 config-version: 2

@@ -1,3 +1,4 @@
+-- Mart định hình bản ghi thời tiết theo hạt dữ liệu thành phố-ngày.
 SELECT
     city_key,
     city_name,

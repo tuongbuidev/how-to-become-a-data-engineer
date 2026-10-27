@@ -1,3 +1,4 @@
+-- Bảng phân tích có kiểu dữ liệu rõ ràng, một dòng cho mỗi thành phố và ngày.
 CREATE TABLE IF NOT EXISTS weather_daily (
     city_key TEXT NOT NULL,
     city_name TEXT NOT NULL,
@@ -11,6 +12,7 @@ CREATE TABLE IF NOT EXISTS weather_daily (
     PRIMARY KEY (city_key, observation_date)
 );
 
+-- Lấy các chỉ số đầu ngày từ mảng JSONB; cập nhật bản ghi cũ để chạy lại an toàn.
 INSERT INTO weather_daily (
     city_key,
     city_name,

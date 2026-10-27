@@ -1,0 +1,120 @@
+name: weather-airflow
+
+x-airflow-common: &airflow-common
+  build:
+    context: ..
+    dockerfile: airflow/Dockerfile
+  image: weather-airflow:3.3.2
+  env_file:
+    - .env
+  environment: &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__AUTH_MANAGER: airflow.api_fastapi.auth.managers.simple.simple_auth_manager.SimpleAuthManager
+    AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS: admin:admin
+    AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_PASSWORDS_FILE: /opt/airflow/logs/simple_auth_manager_passwords.json.generated
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://airflow-api-server:8080/execution/
+    AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET:?Set AIRFLOW_JWT_SECRET in airflow/.env}
+    AIRFLOW__API_AUTH__JWT_ISSUER: airflow
+    AIRFLOW__API_AUTH__JWT_AUDIENCE: http://airflow-api-server:8080
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg://airflow:${AIRFLOW_DB_PASSWORD:?Set AIRFLOW_DB_PASSWORD in airflow/.env}@airflow-postgres:5432/airflow
+    AIRFLOW__API__SECRET_KEY: ${AIRFLOW_SECRET_KEY:?Set AIRFLOW_SECRET_KEY in airflow/.env}
+    AIRFLOW__API__WORKERS: "1"
+    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
+    WEATHER_DB_PASSWORD: ${WEATHER_DB_PASSWORD:?Set WEATHER_DB_PASSWORD in airflow/.env}
+    AIRFLOW_HOME: /opt/airflow
+    PYTHONPATH: /opt/airflow
+  # Chỉ ghi được vào thư mục log và dữ liệu; mã nguồn được mount chỉ đọc.
+  volumes:
+    - ./dags:/opt/airflow/dags:ro
+    - ./runtime/logs:/opt/airflow/logs
+    - ./runtime/plugins:/opt/airflow/plugins:ro
+    - ./dbt:/opt/airflow/dbt:ro
+    - ../dbt_project.yml:/opt/airflow/dbt_project.yml:ro
+    - ../models:/opt/airflow/models:ro
+    - ../weather_pipeline:/opt/airflow/weather_pipeline:ro
+    - ../config:/opt/airflow/config:ro
+    - ../data/raw/airflow:/opt/airflow/data/raw/airflow
+  user: "50000:0"
+  restart: unless-stopped
+
+x-depends-on-init: &depends-on-init
+  airflow-init:
+    condition: service_completed_successfully
+
+services:
+  airflow-postgres:
+    image: postgres:16-alpine
+    container_name: weather-airflow-postgres
+    environment:
+      POSTGRES_DB: airflow
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: ${AIRFLOW_DB_PASSWORD:?Set AIRFLOW_DB_PASSWORD in airflow/.env}
+    volumes:
+      - airflow_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  airflow-init:
+    <<: *airflow-common
+    command: db migrate
+    restart: "no"
+    depends_on:
+      airflow-postgres:
+        condition: service_healthy
+
+  airflow-api-server:
+    <<: *airflow-common
+    command: api-server
+    # Chỉ mở giao diện Airflow trên loopback của máy phát triển.
+    ports:
+      - "127.0.0.1:8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/monitor/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    depends_on: *depends-on-init
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    healthcheck:
+      test: ["CMD", "airflow", "jobs", "check", "--job-type", "SchedulerJob", "--local"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+      start_period: 30s
+    depends_on: *depends-on-init
+
+  airflow-dag-processor:
+    <<: *airflow-common
+    command: dag-processor
+    healthcheck:
+      test: ["CMD", "airflow", "jobs", "check", "--job-type", "DagProcessorJob", "--local"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+      start_period: 30s
+    depends_on: *depends-on-init
+
+  airflow-triggerer:
+    <<: *airflow-common
+    command: triggerer
+    healthcheck:
+      test: ["CMD", "airflow", "jobs", "check", "--job-type", "TriggererJob", "--local"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+      start_period: 30s
+    depends_on: *depends-on-init
+
+# Lưu metadata Airflow qua các lần tạo lại container.
+volumes:
+  airflow_postgres_data:

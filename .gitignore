@@ -6,3 +6,8 @@ target/
 dbt_packages/
 logs/
 profiles.yml
+.env
+.env.*
+!.env.example
+airflow/runtime/
+data/raw/airflow/

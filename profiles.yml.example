@@ -1,3 +1,4 @@
+# Mẫu profile cục bộ; mật khẩu được đọc từ biến môi trường, không ghi vào file.
 weather_dbt:
   target: dev
   outputs:

@@ -1,5 +1,6 @@
 version: 2
 
+# Kiểm tra các trường staging bắt buộc phải có giá trị.
 models:
   - name: stg_weather_daily
     description: Typed daily weather fields extracted from the raw JSON payload.

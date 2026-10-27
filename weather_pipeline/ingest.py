@@ -8,6 +8,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import urlopen
 
+# urllib chuẩn thư viện dùng để mã hóa URL và gọi API mà không cần HTTP client ngoài.
+# Các đường dẫn và API dùng chung cho toàn bộ quy trình lấy dữ liệu.
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CITIES_FILE = PROJECT_ROOT / "config" / "cities.json"
 RAW_DIR = PROJECT_ROOT / "data" / "raw"
@@ -15,6 +17,7 @@ API_URL = "https://archive-api.open-meteo.com/v1/archive"
 
 
 def load_cities(path=CITIES_FILE):
+    # Kiểm tra cấu hình trước khi dùng tọa độ để gọi API.
     with path.open(encoding="utf-8") as file:
         cities = json.load(file)
     if not isinstance(cities, dict) or not cities:
@@ -31,6 +34,7 @@ def load_cities(path=CITIES_FILE):
 
 
 def build_request_url(city, requested_date):
+    # Mã hóa tham số truy vấn để tạo URL hợp lệ cho một ngày UTC.
     params = urlencode(
         {
             "latitude": city["latitude"],
@@ -45,6 +49,7 @@ def build_request_url(city, requested_date):
 
 
 def fetch_weather(city, requested_date):
+    # Chuẩn hóa lỗi mạng và phản hồi API thành RuntimeError cho tầng gọi.
     url = build_request_url(city, requested_date)
     try:
         with urlopen(url, timeout=30) as response:
@@ -63,6 +68,7 @@ def fetch_weather(city, requested_date):
 
 
 def save_raw(city_key, requested_date, payload, output_dir=RAW_DIR):
+    # Giữ payload gốc kèm siêu dữ liệu để có thể truy vết lần lấy dữ liệu.
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / f"{requested_date.isoformat()}_{city_key}.json"
     record = {
@@ -78,6 +84,7 @@ def save_raw(city_key, requested_date, payload, output_dir=RAW_DIR):
 
 
 def ingest(city_key, requested_date, cities=None, output_dir=RAW_DIR):
+    # Cho phép truyền cấu hình/đường dẫn thay thế để kiểm thử mà không đổi mặc định.
     cities = load_cities() if cities is None else cities
     if city_key not in cities:
         raise ValueError(f"Unknown city {city_key!r}; configure it in {CITIES_FILE}")
@@ -87,6 +94,7 @@ def ingest(city_key, requested_date, cities=None, output_dir=RAW_DIR):
 
 
 def parse_args(argv=None):
+    # Tách xử lý tham số để CLI và kiểm thử có thể dùng cùng quy tắc.
     parser = argparse.ArgumentParser(description="Fetch one day of weather into raw JSON")
     parser.add_argument("--city", choices=sorted(load_cities()), default="hanoi")
     parser.add_argument("--date", help="Date to fetch in YYYY-MM-DD format (default: yesterday UTC)")
@@ -94,6 +102,7 @@ def parse_args(argv=None):
 
 
 def main(argv=None):
+    # Trả mã lỗi cho shell, đồng thời ghi thông báo lỗi ra stderr.
     args = parse_args(argv)
     try:
         requested_date = date.fromisoformat(args.date) if args.date else datetime.now(timezone.utc).date() - timedelta(days=1)

@@ -1,3 +1,4 @@
+-- Mỗi nhánh đếm số dòng vi phạm một quy tắc; 0 dòng tương ứng PASS.
 WITH checks AS (
     SELECT
         'weather_daily_has_rows' AS check_name,

@@ -1,3 +1,4 @@
+-- Staging chỉ đổi tên và ép kiểu các trường cần dùng từ payload raw.
 WITH source AS (
     SELECT *
     FROM {{ source('weather', 'raw_weather') }}

@@ -1,3 +1,4 @@
+# PostgreSQL cục bộ dùng làm kho raw và cơ sở dữ liệu cho dbt.
 services:
   postgres:
     image: postgres:16-alpine

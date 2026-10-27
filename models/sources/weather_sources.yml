@@ -1,5 +1,6 @@
 version: 2
 
+# Khai báo bảng raw PostgreSQL để model dbt tham chiếu bằng source().
 sources:
   - name: weather
     schema: public

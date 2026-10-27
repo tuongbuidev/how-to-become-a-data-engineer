@@ -1,5 +1,6 @@
 version: 2
 
+# Kiểm tra các trường định danh thiết yếu của mart.
 models:
   - name: fct_weather_daily
     description: One typed analytical weather row per city and observation date.

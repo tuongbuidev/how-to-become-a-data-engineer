@@ -1,3 +1,4 @@
+-- Generic test của dbt: trả về dòng nào có chỉ số nằm ngoài miền vật lý đã chọn.
 SELECT *
 FROM {{ ref('fct_weather_daily') }}
 WHERE mean_temperature_c < -90

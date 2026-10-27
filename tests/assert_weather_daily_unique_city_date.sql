@@ -1,3 +1,4 @@
+-- Generic test của dbt: nhóm khóa hạt dữ liệu và trả về khóa bị lặp.
 SELECT
     city_key,
     observation_date

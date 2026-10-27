@@ -8,6 +8,7 @@ from unittest.mock import patch
 from weather_pipeline.ingest import load_cities, save_raw
 
 
+# Bộ kiểm thử tập trung vào cấu hình và việc lưu payload, không gọi API thật.
 class IngestTests(unittest.TestCase):
     def test_loads_configured_learning_cities(self):
         cities = load_cities()

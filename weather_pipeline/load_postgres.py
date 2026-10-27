@@ -8,11 +8,14 @@ from pathlib import Path
 import psycopg
 from psycopg.types.json import Jsonb
 
+# psycopg quản lý kết nối; Jsonb giữ payload ở dạng JSONB khi ghi vào PostgreSQL.
+# Dùng đường dẫn tuyệt đối theo vị trí mã nguồn để chạy ổn định từ mọi thư mục.
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 RAW_DIR = PROJECT_ROOT / "data" / "raw"
 
 
 def load_raw_files(raw_dir=RAW_DIR):
+    # Đọc và kiểm tra toàn bộ file trước khi gửi batch sang PostgreSQL.
     records = []
     for path in sorted(raw_dir.glob("*.json")):
         record = json.loads(path.read_text(encoding="utf-8"))
@@ -27,6 +30,7 @@ def load_raw_files(raw_dir=RAW_DIR):
 
 
 def load_to_postgres(raw_dir=RAW_DIR, database_url=None):
+    # Nạp lặp an toàn nhờ khóa thành phố-ngày và nhánh ON CONFLICT.
     records = load_raw_files(raw_dir)
     if not records:
         print(f"No JSON files found in {raw_dir}")
@@ -52,6 +56,7 @@ def load_to_postgres(raw_dir=RAW_DIR, database_url=None):
 
 
 def main(argv=None):
+    # Hàm điều phối CLI; phần nạp dữ liệu có thể gọi riêng khi cần.
     parser = argparse.ArgumentParser(description="Load raw weather JSON files into PostgreSQL")
     parser.add_argument("--raw-dir", type=Path, default=RAW_DIR)
     args = parser.parse_args(argv)

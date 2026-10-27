@@ -1,0 +1,4 @@
+# Dùng bộ constraint chính thức để các package tương thích với Airflow 3.3.2.
+--constraint https://raw.githubusercontent.com/apache/airflow/constraints-3.3.2/constraints-3.13.txt
+apache-airflow==3.3.2
+psycopg[binary]==3.3.5
