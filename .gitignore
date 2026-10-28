@@ -11,3 +11,4 @@ profiles.yml
 !.env.example
 airflow/runtime/
 data/raw/airflow/
+data/processed/spark/

@@ -17,16 +17,16 @@ flowchart TD
     F -.-> B
     F -.-> E
     A --> G["Bài 5 — Bước 1: Chọn batch JSON và đếm file"]
-    G --> H["Bước 2: Chuẩn bị Spark local trong Docker"]
-    H --> I["Dự kiến: Đọc JSON thành DataFrame"]
-    I --> J["Dự kiến: Trích metadata và các chỉ số daily"]
-    J --> K["Dự kiến: Kiểm tra schema và số dòng"]
-    K --> L["Dự kiến: Ghi Parquet và đọc lại để đối chiếu"]
+    G -->     H["Bước 2: Chạy Spark local trong Docker"]
+    H --> I["Bước 3: Đọc JSON multiline bằng schema rõ ràng"]
+    I --> J["Bước 4: Ghép mảng daily và trải thành các dòng"]
+    J --> K["Bước 5: Kiểm tra mảng, số dòng và schema"]
+    K --> L["Bước 6: Ghi Parquet và đọc lại đối chiếu"]
 ```
 
 **Đầu vào bài 5:** batch JSON do Airflow tạo, mỗi file tương ứng một thành phố. **Đầu ra dự kiến:** dữ liệu Parquet với các cột thành phố, ngày, nhiệt độ, lượng mưa và tốc độ gió.
 
-Hiện bài 5 mới có hướng dẫn chuẩn bị; các bước ghi “Dự kiến” chưa có mã triển khai. Airflow hiện chỉ điều phối ingest → nạp PostgreSQL → dbt run → dbt test, chưa tự chạy Spark.
+Airflow hiện chỉ điều phối ingest → nạp PostgreSQL → dbt run → dbt test, chưa tự chạy Spark. Bài Spark được chạy độc lập bằng Compose trong [spark/docker-compose.yml](docker-compose.yml).
 
 ## Mục tiêu
 
@@ -52,11 +52,9 @@ Get-ChildItem data\raw\airflow\2026-10-25 -File
 
 Thay ngày ví dụ bằng thư mục thực tế trên máy bạn. Mở một JSON và xác định đường dẫn tới `daily.time`, `daily.temperature_2m_mean`, `daily.precipitation_sum` và `daily.wind_speed_10m_max`.
 
-## Bước 2 — Thêm Spark vào môi trường thực hành
+## Bước 2 — Chuẩn bị Spark local
 
-Chúng ta sẽ trước tiên đọc dữ liệu bằng PySpark chạy local qua container chính thức `spark`. Bước triển khai Compose/runner và mã ETL sẽ được hoàn thiện sau khi xác nhận đường dẫn đầu vào tồn tại và đã hiểu cấu trúc payload.
-
-Không cài PySpark vào môi trường Airflow: scheduler và Spark có mục đích, dependency khác nhau. Pipeline Airflow hiện tại vẫn chạy ingest, PostgreSQL và dbt như trước.
+Spark chạy trong container Docker riêng, không cài PySpark vào môi trường Airflow vì scheduler và Spark có mục đích, dependency khác nhau. Pipeline Airflow hiện tại tiếp tục điều phối ingest, PostgreSQL và dbt; bài Spark chạy độc lập trên raw JSON.
 
 ## Thực hành
 
@@ -65,4 +63,29 @@ Không cài PySpark vào môi trường Airflow: scheduler và Spark có mục �
 3. Phác thảo schema đầu ra: `city_key`, `city_name`, `observation_date`, `mean_temperature_c`, `precipitation_mm`, `max_wind_speed_kmh`.
 4. Dự đoán số bản ghi đầu ra và kiểu dữ liệu mong muốn cho từng cột.
 
-Sau khi bạn hoàn thành bước chuẩn bị này, chúng ta sẽ tạo Spark job, chạy và kiểm tra bảng Parquet đầu ra. Chưa cần push bài 5; theo quy ước, tài liệu ôn tập và push sẽ thực hiện khi bạn xác nhận hoàn thành bài.
+### Chạy job Spark
+
+Job mẫu đã có tại [spark/jobs/weather_batch.py](jobs/weather_batch.py). Job dùng schema rõ ràng, bật `multiLine` vì raw JSON được format nhiều dòng, chuyển mảng `daily` thành các dòng phẳng và ghi Parquet vào `data/processed/spark/weather_daily`.
+
+Từ thư mục gốc repo, chạy:
+
+```powershell
+Set-Location spark
+docker compose run --rm spark
+```
+
+Kết quả mong đợi:
+
+- Spark đọc 5 file JSON từ batch ngày `2026-10-27`.
+- Đầu ra có 5 dòng, tương ứng 5 thành phố.
+- Các cột chính gồm `city_key`, `city_name`, `observation_date`, `mean_temperature_c`, `precipitation_mm`, `max_wind_speed_kmh`.
+- Parquet được ghi và đọc lại thành công tại `data/processed/spark/weather_daily`.
+- Job in schema và kiểm tra số dòng Parquet phải bằng số dòng đầu ra.
+
+Kiểm tra thư mục đầu ra:
+
+```powershell
+Get-ChildItem ..\data\processed\spark\weather_daily
+```
+
+Nếu muốn chạy ngày khác, sửa đường dẫn volume `../data/raw/airflow/2026-10-27` trong [spark/docker-compose.yml](docker-compose.yml). Output Parquet là dữ liệu sinh ra và được `.gitignore` loại khỏi Git. Sau khi kiểm tra, có thể xóa bằng `Remove-Item ..\data\processed\spark\weather_daily -Recurse -Force`.

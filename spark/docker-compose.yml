@@ -1,0 +1,13 @@
+# Chạy một Spark job local để học DataFrame và Parquet mà không cần cluster thật.
+services:
+  spark:
+    image: apache/spark:3.5.3-scala2.12-java17-python3-ubuntu
+    working_dir: /opt/spark
+    volumes:
+      - ../data/raw/airflow/2026-10-27:/data/input:ro
+      - ../data/processed/spark:/data/output
+      - ./jobs:/opt/spark/jobs:ro
+    command: >-
+      /opt/spark/bin/spark-submit
+      --master local[*]
+      /opt/spark/jobs/weather_batch.py
