@@ -21,7 +21,7 @@ Dự án học Data Engineering theo từng chặng, dùng dữ liệu thời ti
 
 ## Bài đang thực hành — Tích hợp Spark vào Airflow
 
-Bài tiếp theo sẽ thêm Spark vào DAG để Airflow điều phối luồng ingest → raw JSON → Spark Parquet, đồng thời giữ các bước PostgreSQL và dbt hiện tại.
+Xem [Bài 6 — Điều phối Spark bằng Airflow](docs/lessons/06-airflow-spark-integration.md). Bài này sẽ thêm Spark vào DAG để Airflow điều phối luồng ingest → raw JSON → Spark Parquet, đồng thời giữ các bước PostgreSQL và dbt hiện tại. Hiện tài liệu mới mô tả kiến trúc và bước chuẩn bị; DAG chưa tích hợp Spark.
 
 ## Chặng 3 — SQL, mô hình dữ liệu và chất lượng dữ liệu
 
