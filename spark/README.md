@@ -1,5 +1,7 @@
 # Bài 5 — Xử lý dữ liệu batch với Apache Spark
 
+> Bài đã hoàn thành. Xem [tài liệu ôn tập chi tiết](../docs/lessons/05-spark-batch-processing.md) để xem lại mục tiêu, lỗi đã gặp, kết quả kiểm chứng và bài tập mở rộng.
+
 Trong bài này, bạn sẽ dùng PySpark để đọc các file JSON thô do pipeline Airflow tạo ra, biến đổi dữ liệu thời tiết thành bảng có cấu trúc và ghi kết quả Parquet. Bài chạy Spark local trong Docker để làm quen với DataFrame và tư duy xử lý phân tán mà chưa cần cluster thật.
 
 ## Workflow tổng quan

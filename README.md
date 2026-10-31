@@ -17,10 +17,11 @@ Dự án học Data Engineering theo từng chặng, dùng dữ liệu thời ti
 - [Bài 3.1 — Kiểm tra chất lượng dữ liệu bằng SQL](docs/lessons/03-1-sql-data-quality.md)
 - [Bài 3.2 — Mô hình hóa dữ liệu với dbt](docs/lessons/03-2-dbt-data-modeling.md)
 - [Bài 4 — Tự động hóa pipeline với Airflow](docs/lessons/04-airflow-orchestration.md)
+- [Bài 5 — Xử lý batch với Apache Spark](docs/lessons/05-spark-batch-processing.md)
 
-## Bài đang thực hành — Apache Spark
+## Bài đang thực hành — Tích hợp Spark vào Airflow
 
-Bài tiếp theo mở đầu xử lý dữ liệu phân tán với PySpark: đọc dữ liệu thời tiết theo batch, biến đổi DataFrame, kiểm tra kết quả và ghi đầu ra phân tích. Xem [hướng dẫn bài Spark](spark/README.md) và [hướng dẫn Airflow](airflow/README.md) để khởi động lại pipeline trước khi học nếu cần.
+Bài tiếp theo sẽ thêm Spark vào DAG để Airflow điều phối luồng ingest → raw JSON → Spark Parquet, đồng thời giữ các bước PostgreSQL và dbt hiện tại.
 
 ## Chặng 3 — SQL, mô hình dữ liệu và chất lượng dữ liệu
 
