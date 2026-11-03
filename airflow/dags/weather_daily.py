@@ -1,5 +1,6 @@
 import os
-from datetime import datetime, timedelta
+import subprocess
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 # Thư viện Airflow chỉ có trong container, không có trong môi trường Python cục bộ.
@@ -16,11 +17,16 @@ RAW_ROOT = PROJECT_DIR / 'data' / 'raw' / 'airflow'
 CITY_KEYS = ['hanoi', 'ho-chi-minh-city', 'da-nang', 'hue', 'can-tho']
 
 
-def ingest_city(city_key: str) -> str:
-    # Ngữ cảnh thực thi cung cấp khoảng thời gian của lần chạy hiện tại.
+def get_requested_date() -> date:
+    # Lần chạy thủ công có thể không có data interval; khi đó dùng ngày UTC hiện tại.
     context = get_current_context()
-    # Pipeline lấy dữ liệu archive của ngày UTC liền trước, kể cả khi chạy thủ công.
-    requested_date = (context['data_interval_end'] - timedelta(days=1)).date()
+    interval_end = context.get('data_interval_end') or datetime.now(timezone.utc)
+    # Lấy ngày liền trước theo quy ước batch của pipeline.
+    return (interval_end - timedelta(days=1)).date()
+
+
+def ingest_city(city_key: str) -> str:
+    requested_date = get_requested_date()
     # Lưu mỗi thành phố thành một file trong thư mục mang ngày được yêu cầu.
     output_dir = RAW_ROOT / requested_date.isoformat()
     # Chỉ import khi task chạy để bước nạp DAG không cần tải các phụ thuộc ingest.
@@ -31,10 +37,32 @@ def ingest_city(city_key: str) -> str:
     return str(path)
 
 
+def run_spark_batch() -> str:
+    """Chạy Spark local để trải raw JSON thành Parquet theo ngày của DAG."""
+    requested_date = get_requested_date()
+    input_path = RAW_ROOT / requested_date.isoformat() / '*.json'
+    output_path = PROJECT_DIR / 'data' / 'processed' / 'spark' / requested_date.isoformat()
+
+    # Dùng cùng image Airflow nhưng venv riêng để Spark không ảnh hưởng dependency Airflow.
+    env = os.environ.copy()
+    env['PYSPARK_PYTHON'] = '/home/airflow/spark-venv/bin/python'
+    command = [
+        '/home/airflow/spark-venv/bin/spark-submit',
+        '--master',
+        'local[*]',
+        '/opt/airflow/spark/jobs/weather_batch.py',
+        '--input',
+        str(input_path),
+        '--output',
+        str(output_path),
+    ]
+    subprocess.run(command, check=True, env=env)
+    return str(output_path)
+
+
 def load_batch() -> int:
     # Dùng cùng ngày dữ liệu với các task ingest để chỉ nạp batch của lần chạy này.
-    context = get_current_context()
-    requested_date = (context['data_interval_end'] - timedelta(days=1)).date()
+    requested_date = get_requested_date()
     # Hoãn import loader đến lúc chạy task, không thực hiện khi Airflow khám phá DAG.
     from weather_pipeline.load_postgres import load_to_postgres
 
@@ -66,6 +94,11 @@ with DAG(
         for city_key in CITY_KEYS
     ]
 
+    # Chạy Spark sau ingest để chỉ đọc đủ raw JSON của ngày này.
+    spark_weather_batch = PythonOperator(
+        task_id='spark_weather_batch',
+        python_callable=run_spark_batch,
+    )
     # Chỉ nạp các file raw sau khi mọi task ingest thành phố đã thành công.
     load = PythonOperator(task_id='load_raw_batch', python_callable=load_batch)
     # Chạy model dbt bằng môi trường ảo dbt riêng trong container.
@@ -81,5 +114,6 @@ with DAG(
         append_env=True,
     )
 
-    # Khai báo thứ tự: ingest tất cả thành phố → nạp → dựng model → kiểm thử.
+    # Sau ingest, Spark và load PostgreSQL có thể chạy song song; dbt chờ load hoàn tất.
+    ingest_tasks >> spark_weather_batch
     ingest_tasks >> load >> dbt_run >> dbt_test

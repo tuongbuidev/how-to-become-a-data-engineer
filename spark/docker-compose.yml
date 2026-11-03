@@ -11,3 +11,5 @@ services:
       /opt/spark/bin/spark-submit
       --master local[*]
       /opt/spark/jobs/weather_batch.py
+      --input /data/input/*.json
+      --output /data/output/weather_daily

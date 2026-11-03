@@ -1,5 +1,7 @@
 """Đọc batch JSON thời tiết và ghi dữ liệu phẳng ra Parquet bằng PySpark."""
 
+import argparse
+
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.functions import arrays_zip, col, explode, input_file_name, size, sum as spark_sum
 from pyspark.sql.types import (
@@ -85,6 +87,11 @@ def transform_weather_batch(raw_df: DataFrame) -> DataFrame:
 
 def main() -> None:
     """Đọc JSON, kiểm tra số dòng và ghi kết quả Parquet."""
+    parser = argparse.ArgumentParser(description="Transform weather JSON into Parquet")
+    parser.add_argument("--input", default="/data/input/*.json")
+    parser.add_argument("--output", default="/data/output/weather_daily")
+    args = parser.parse_args()
+
     spark = SparkSession.builder.appName("weather-batch-to-parquet").getOrCreate()
     spark.sparkContext.setLogLevel("WARN")
 
@@ -92,7 +99,7 @@ def main() -> None:
     raw_df = (
         spark.read.option("multiLine", True)
         .schema(WEATHER_SCHEMA)
-        .json("/data/input/*.json")
+        .json(args.input)
     )
     invalid_rows = raw_df.filter(
         (size(col("payload.daily.time")) != size(col("payload.daily.temperature_2m_mean")))
@@ -114,7 +121,7 @@ def main() -> None:
         )
 
     result_df.orderBy("city_key").show(truncate=False)
-    output_path = "/data/output/weather_daily"
+    output_path = args.output
     result_df.write.mode("overwrite").parquet(output_path)
 
     # Đọc lại Parquet để kiểm tra dữ liệu đã được ghi và có thể sử dụng tiếp.
