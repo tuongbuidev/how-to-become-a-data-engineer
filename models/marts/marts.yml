@@ -11,3 +11,15 @@ models:
       - name: observation_date
         tests:
           - not_null
+      - name: city_name
+        tests:
+          - not_null
+      - name: mean_temperature_c
+        tests:
+          - not_null
+      - name: precipitation_mm
+        tests:
+          - not_null
+      - name: max_wind_speed_kmh
+        tests:
+          - not_null

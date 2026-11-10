@@ -33,6 +33,7 @@ x-airflow-common: &airflow-common
     - ./dbt:/opt/airflow/dbt:ro
     - ../dbt_project.yml:/opt/airflow/dbt_project.yml:ro
     - ../models:/opt/airflow/models:ro
+    - ../tests:/opt/airflow/tests:ro
     - ../weather_pipeline:/opt/airflow/weather_pipeline:ro
     - ../config:/opt/airflow/config:ro
     - ../data/raw/airflow:/opt/airflow/data/raw/airflow
