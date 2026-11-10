@@ -19,9 +19,13 @@ Dự án học Data Engineering theo từng chặng, dùng dữ liệu thời ti
 - [Bài 4 — Tự động hóa pipeline với Airflow](docs/lessons/04-airflow-orchestration.md)
 - [Bài 5 — Xử lý batch với Apache Spark](docs/lessons/05-spark-batch-processing.md)
 
-## Bài đang thực hành — Tích hợp Spark vào Airflow
+## Bài đã hoàn thành — Tích hợp Spark vào Airflow
 
-Xem [Bài 6 — Điều phối Spark bằng Airflow](docs/lessons/06-airflow-spark-integration.md). Bài này sẽ thêm Spark vào DAG để Airflow điều phối luồng ingest → raw JSON → Spark Parquet, đồng thời giữ các bước PostgreSQL và dbt hiện tại. Hiện tài liệu mới mô tả kiến trúc và bước chuẩn bị; DAG chưa tích hợp Spark.
+Xem [Bài 6 — Điều phối Spark bằng Airflow](docs/lessons/06-airflow-spark-integration.md) để xem luồng ingest → Spark → PostgreSQL → dbt.
+
+## Bài đang thực hành — Data Observability
+
+Xem [Bài 8 — Data Observability bằng SQL](docs/lessons/08-data-observability.md). Phần đầu thực hành đo độ mới, số lượng và độ phủ dữ liệu trong mart bằng ba truy vấn SQL; bước tiếp theo là lưu snapshot theo từng DAG run để theo dõi xu hướng.
 
 ## Chặng 3 — SQL, mô hình dữ liệu và chất lượng dữ liệu
 

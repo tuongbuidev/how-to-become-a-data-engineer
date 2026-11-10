@@ -7,6 +7,7 @@ from pathlib import Path
 from airflow.sdk import DAG, get_current_context  # pyright: ignore[reportMissingImports]
 from airflow.providers.standard.operators.python import PythonOperator  # pyright: ignore[reportMissingImports]
 from airflow.providers.standard.operators.bash import BashOperator  # pyright: ignore[reportMissingImports]
+from psycopg import connect
 from psycopg.conninfo import make_conninfo
 
 # Đường dẫn tuyệt đối tới thư mục dự án được mount trong mỗi container Airflow.
@@ -58,6 +59,125 @@ def run_spark_batch() -> str:
     ]
     subprocess.run(command, check=True, env=env)
     return str(output_path)
+
+
+def record_observability_snapshot() -> None:
+    """Lưu chỉ số mart và trạng thái dbt test cho DAG run hiện tại."""
+    context = get_current_context()
+    dag_run = context['dag_run']
+    database_url = make_conninfo(
+        host='host.docker.internal',
+        port=5433,
+        dbname='weather',
+        user='weather',
+        password=os.environ['WEATHER_DB_PASSWORD'],
+    )
+
+    with connect(database_url) as connection, connection.cursor() as cursor:
+        cursor.execute(
+            """
+            CREATE SCHEMA IF NOT EXISTS observability;
+            CREATE TABLE IF NOT EXISTS observability.weather_pipeline_snapshots (
+                dag_id TEXT NOT NULL,
+                run_id TEXT NOT NULL,
+                recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                row_count BIGINT NOT NULL,
+                city_count INTEGER NOT NULL,
+                latest_observation_date DATE,
+                observation_lag_days INTEGER,
+                latest_fetch_at TIMESTAMPTZ,
+                dbt_test_status TEXT NOT NULL,
+                observability_status TEXT NOT NULL,
+                warning_reasons JSONB NOT NULL,
+                city_metrics JSONB NOT NULL,
+                PRIMARY KEY (dag_id, run_id)
+            );
+            ALTER TABLE observability.weather_pipeline_snapshots
+                ADD COLUMN IF NOT EXISTS observability_status TEXT NOT NULL DEFAULT 'healthy';
+            ALTER TABLE observability.weather_pipeline_snapshots
+                ADD COLUMN IF NOT EXISTS warning_reasons JSONB NOT NULL DEFAULT '[]'::jsonb;
+            """
+        )
+        cursor.execute(
+            """
+            WITH city_metrics AS (
+                SELECT
+                    city_key,
+                    COUNT(*) AS row_count,
+                    MAX(observation_date) AS latest_observation_date
+                FROM analytics.fct_weather_daily
+                GROUP BY city_key
+            ), aggregate_metrics AS (
+                SELECT
+                    COUNT(*) AS row_count,
+                    COUNT(DISTINCT city_key) AS city_count,
+                    MAX(observation_date) AS latest_observation_date,
+                    CURRENT_DATE - MAX(observation_date) AS observation_lag_days,
+                    MAX(fetched_at) AS latest_fetch_at
+                FROM analytics.fct_weather_daily
+            ), previous_metrics AS (
+                SELECT row_count
+                FROM observability.weather_pipeline_snapshots
+                WHERE dag_id = %s
+                ORDER BY recorded_at DESC
+                LIMIT 1
+            )
+            INSERT INTO observability.weather_pipeline_snapshots (
+                dag_id,
+                run_id,
+                row_count,
+                city_count,
+                latest_observation_date,
+                observation_lag_days,
+                latest_fetch_at,
+                dbt_test_status,
+                observability_status,
+                warning_reasons,
+                city_metrics
+            )
+            SELECT
+                %s,
+                %s,
+                metrics.row_count,
+                metrics.city_count,
+                metrics.latest_observation_date,
+                metrics.observation_lag_days,
+                metrics.latest_fetch_at,
+                'passed',
+                CASE
+                    WHEN metrics.row_count = 0
+                        OR metrics.city_count < %s
+                        OR metrics.observation_lag_days > 1
+                        OR (previous.row_count IS NOT NULL AND metrics.row_count < previous.row_count)
+                    THEN 'warning'
+                    ELSE 'healthy'
+                END,
+                array_to_json(array_remove(ARRAY[
+                    CASE WHEN metrics.row_count = 0 THEN 'no_rows' END,
+                    CASE WHEN metrics.city_count < %s THEN 'missing_expected_city' END,
+                    CASE WHEN metrics.observation_lag_days > 1 THEN 'stale_observation_date' END,
+                    CASE WHEN previous.row_count IS NOT NULL AND metrics.row_count < previous.row_count THEN 'row_count_decreased' END
+                ], NULL))::jsonb,
+                COALESCE(
+                    (SELECT jsonb_agg(to_jsonb(city_metrics) ORDER BY city_key) FROM city_metrics),
+                    '[]'::jsonb
+                )
+            FROM aggregate_metrics AS metrics
+            LEFT JOIN previous_metrics AS previous ON TRUE
+            ON CONFLICT (dag_id, run_id) DO UPDATE SET
+                recorded_at = NOW(),
+                row_count = EXCLUDED.row_count,
+                city_count = EXCLUDED.city_count,
+                latest_observation_date = EXCLUDED.latest_observation_date,
+                observation_lag_days = EXCLUDED.observation_lag_days,
+                latest_fetch_at = EXCLUDED.latest_fetch_at,
+                dbt_test_status = EXCLUDED.dbt_test_status,
+                observability_status = EXCLUDED.observability_status,
+                warning_reasons = EXCLUDED.warning_reasons,
+                city_metrics = EXCLUDED.city_metrics
+            """,
+            (dag_run.dag_id, dag_run.dag_id, dag_run.run_id, len(CITY_KEYS), len(CITY_KEYS)),
+        )
 
 
 def load_batch() -> int:
@@ -113,7 +233,12 @@ with DAG(
         bash_command='/home/airflow/dbt-venv/bin/dbt test --project-dir /opt/airflow --profiles-dir /opt/airflow/dbt',
         append_env=True,
     )
+    # Ghi snapshot chỉ khi toàn bộ dbt tests thành công.
+    observability_snapshot = PythonOperator(
+        task_id='record_observability_snapshot',
+        python_callable=record_observability_snapshot,
+    )
 
     # Sau ingest, Spark và load PostgreSQL có thể chạy song song; dbt chờ load hoàn tất.
     ingest_tasks >> spark_weather_batch
-    ingest_tasks >> load >> dbt_run >> dbt_test
+    ingest_tasks >> load >> dbt_run >> dbt_test >> observability_snapshot
